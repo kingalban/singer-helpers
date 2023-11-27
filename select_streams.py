@@ -1,14 +1,37 @@
+from __future__ import annotations
+
 import os
 import sys
 import json
 import argparse
-from typing import Sequence, List, Dict, Union, Any
+from typing import Sequence, Any, Optional, TypedDict
 from functools import reduce
 
-JSONType = Union[List['JSONType'], Dict[str, 'JSONType']]
+
+StreamMetadataClass = TypedDict("StreamMetadataClass",{
+    "breadcrumb": list,
+    "metadata": dict[str, bool | str | dict],
+    "replication-method": Optional[str],
+    "forced-replication-method": Optional[str],
+})
+
+StreamType = TypedDict("StreamType", {
+    "stream": str,
+    "tap_stream_id": Optional[str],
+    "replication_method": Optional[str],
+    "key_properties": Optional[list[str]],
+    "schema": dict[str, str | list | dict],
+    "metadata": list[StreamMetadataClass],
+    "replication-method": Optional[str],
+    "forced-replication-method": Optional[str],
+})
 
 
-def get_streams(catalog: JSONType):
+class CatalogType(TypedDict):
+    streams: list[StreamType]
+
+
+def get_stream_names(catalog: CatalogType) -> list[str]:
     return [stream["stream"] for stream in catalog["streams"]]
 
 
@@ -16,57 +39,54 @@ def xor(*args: Any) -> bool:
     return reduce(lambda a, b: a ^ b, (bool(arg) for arg in args))
 
 
-def save_catalog(catalog: JSONType, file_name: str):
+def save_catalog(catalog: CatalogType, file_name: str) -> None:
     file_name = os.path.join("/tmp", file_name)
     with open(file_name, "w") as f:
         json.dump(catalog, f)
     print(file_name)
+    return None
 
 
-def detect_unknown_streams(stream_names: Sequence[str], input_names: Sequence[str]):
+def detect_unknown_streams(stream_names: Sequence[str], input_names: Sequence[str]) -> None:
     unknown_names = set(input_names) - set(stream_names)
     if unknown_names:
         raise ValueError(f"Warning: Streams you have referenced do not exist in the catalog!\n"
                          f"unknown streams: " + ", ".join(unknown_names))
+    return None
 
 
-def filter_catalog(catalog: Dict, select: Sequence[str] = None, exclude: Sequence[str] = None):
+def filter_catalog(catalog: CatalogType,
+                   selected: Sequence[str] | None = None,
+                   excluded: Sequence[str] | None = None,
+                   replication_method: str | None = None,
+                   forced_replication_method: str | None = None) -> None:
     for stream in catalog["streams"]:
+        if replication_method:
+            stream["replication-method"] = replication_method   # some taps use this location in the document
+        if forced_replication_method:
+            stream["forced-replication-method"] = forced_replication_method
+
         for mdata in stream["metadata"]:
-            if mdata.get("breadcrumb") == []:
-                if select is not None:
-                    mdata["metadata"]["selected"] = stream["stream"] in select
-                elif exclude is not None:
-                    mdata["metadata"]["selected"] = stream["stream"] not in exclude
+            if not mdata.get("breadcrumb"):
+                if selected is not None:
+                    mdata["metadata"]["selected"] = stream["stream"] in selected
+                elif excluded is not None:
+                    mdata["metadata"]["selected"] = stream["stream"] not in excluded
+
+                if replication_method:
+                    mdata["metadata"]["replication-method"] = replication_method
+                if forced_replication_method:
+                    mdata["metadata"]["forced-replication-method"] = forced_replication_method
+
+    return None
 
 
-def remove_schema(catalog: Dict):
+def remove_schema(catalog: dict):
     for stream in catalog["streams"]:
         stream["schema"] = {}
 
 
-def main(catalog, select, exclude, mode, should_remove_schema):
-    detect_unknown_streams((s["stream"] for s in catalog["streams"]), select or exclude)
-
-    if should_remove_schema:
-        remove_schema(catalog)
-
-    filter_catalog(catalog, select, exclude)
-
-    if mode == "file":
-        file_name = "temp_catalog"
-        if select:
-            file_name += "__select-" + "-".join(select)
-        if exclude:
-            file_name += "__excluded-" + "-".join(exclude)
-        file_name += ".json"
-        save_catalog(catalog, file_name)
-
-    elif mode == "print":
-        print(json.dumps(catalog))
-
-
-if __name__ == "__main__":
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser("select and de-select streams from singer catalog",
                                      epilog="saves output to tmp and gives file path to print")
 
@@ -80,19 +100,46 @@ if __name__ == "__main__":
     parser.add_argument("--list", action="store_true", help="list streams in catalog")
 
     parser.add_argument("--remove-schema", action="store_true", help="leave only '{}' schema for all streams")
+    parser.add_argument("--replication-method", choices=["INCREMENTAL", "FULL_TABLE", "LOG_BASED"],
+                        help="sync streams with this method")
+    parser.add_argument("--forced-replication-method", choices=["INCREMENTAL", "FULL_TABLE", "LOG_BASED"],
+                        help="sync streams with this method")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     with open(args.FILE) as f:
         catalog = json.load(f)
 
     if args.list:
-        print("\n".join(get_streams(catalog)))
+        print("\n".join(get_stream_names(catalog)))
         sys.exit()
 
     if not xor(args.select, args.exclude, args.all):
         raise ValueError("specify only one of -s, -d and --all")
 
-    select = get_streams(catalog) if args.all else args.select
+    select = get_stream_names(catalog) if args.all else args.select
 
-    main(catalog, select, args.exclude, args.mode, args.remove_schema)
+    detect_unknown_streams(get_stream_names(catalog), select or args.exclude)
+
+    if args.remove_schema:
+        remove_schema(catalog)
+
+    filter_catalog(catalog, select, args.exclude, args.replication_method, args.forced_replication_method)
+
+    if args.mode == "file":
+        file_name = "temp_catalog"
+        if select:
+            file_name += "__select-" + "-".join(select)
+        if args.exclude:
+            file_name += "__excluded-" + "-".join(args.exclude)
+        file_name += ".json"
+        save_catalog(catalog, file_name)
+
+    else:
+        print(json.dumps(catalog))
+
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main())

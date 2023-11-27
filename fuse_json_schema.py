@@ -18,11 +18,14 @@ def zip_dicts(dict_1, dict_2, empty=None):
         yield key, dict_1.get(key, empty), dict_2.get(key, empty)
 
 
-def fuse_json_schemas(schema_a: JsonSchema = null_schema, schema_b: JsonSchema = null_schema) -> JsonSchema:
+def fuse_json_schemas(schema_a: JsonSchema | None = None, schema_b: JsonSchema | None = None) -> JsonSchema:
     def union_types(type_a: list | str, type_b: list | str) -> list:
         type_a_set = {type_a} if isinstance(type_a, str) else set(type_a)
         type_b_set = {type_b} if isinstance(type_b, str) else set(type_b)
         return list(type_a_set | type_b_set)
+
+    schema_a = schema_a or null_schema
+    schema_b = schema_b or null_schema
 
     fused_schema: JsonSchema = {"type": union_types(schema_a.get("type", []), schema_b.get("type", []))}
 

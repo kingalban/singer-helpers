@@ -27,14 +27,14 @@ def alert_empty_dict(_tree, path, node) -> None:
         print(f"found empty node at {'.'.join(path)!r}")
 
 
-def main(argv) -> int:
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--openAPI-file", help="path to openAPI .yml doc")
     parser.add_argument("--path-to-schema", help="dot separated path to the schema in the .yml after $ref expansion "
                                                  "(eg: paths./accounts.get.responses.200.content.application/json.schema")
     parser.add_argument("--schema-file", help="path to the schema .json file")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     with open(args.openAPI_file) as f:
         API_doc = yaml.safe_load(f.read())
