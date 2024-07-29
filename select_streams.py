@@ -86,6 +86,21 @@ def remove_schema(catalog: dict):
         stream["schema"] = {}
 
 
+def print_stream_summary(catalog: dict):
+    print(f"| {'stream':<30} | {'selected':^10} | {'selected-by-default':^20} | {'replication-method':^20} |")
+    print(f"+-{'':-^30}-+-{'':-^10}-+-{'':-^20}-+-{'':-^20}-+")
+
+    for stream in catalog["streams"]:
+        metadata = [m for m in stream['metadata'] if m.get('breadcrumb') == []][0]["metadata"]
+        print(f"| {stream['stream']:<30} | "
+              f"{metadata.get('selected')!s:^10} | "
+              f"{metadata.get('selected-by-default')!s:^20} | "
+              f"{metadata.get('replication-method')!s:^20} |"
+              )
+
+    print(f"+-{'':-^30}-+-{'':-^10}-+-{'':-^20}-+-{'':-^20}-+")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser("select and de-select streams from singer catalog",
                                      epilog="saves output to tmp and gives file path to print")
@@ -107,12 +122,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
-    with open(args.FILE) as f:
-        catalog = json.load(f)
+    if args.FILE:
+        with open(args.FILE) as f:
+            catalog = json.load(f)
+    else:
+        catalog = json.loads(sys.stdin.read())
 
     if args.list:
-        print("\n".join(get_stream_names(catalog)))
-        sys.exit()
+        print_stream_summary(catalog)
+        return 0
 
     if not xor(args.select, args.exclude, args.all):
         raise ValueError("specify only one of -s, -d and --all")

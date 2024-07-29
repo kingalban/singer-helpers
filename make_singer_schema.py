@@ -1,3 +1,9 @@
+from __future__ import annotations
+"""
+This script is a work in progress.
+
+"""
+
 import argparse
 from tree_grafter import deep_getitem, JSONLike, ReplaceNode, apply_transformations, PathType
 from tree_grafter.openAPI import parse_openAPI_doc, hide_pagination, remove_excess_keys, is_property, add_nulls

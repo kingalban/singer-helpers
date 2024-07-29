@@ -1,4 +1,9 @@
 from __future__ import annotations
+"""
+This script is a work in progress.
+
+"""
+
 from typing_extensions import NotRequired, TypedDict
 
 
