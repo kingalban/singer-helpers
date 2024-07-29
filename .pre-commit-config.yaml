@@ -1,0 +1,17 @@
+default_stages: [pre-commit]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: mixed-line-ending
+        args: ["-f=lf"] # forces all line endings to be linux style 'LF' (aka '\n')
+      - id: end-of-file-fixer # always end with newline
+      - id: check-case-conflict # disallow 'F.sql' next to 'f.sql'
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.5
+    hooks:
+      - id: ruff
+        args: [ --fix ]
+        exclude: fuse_json_schema|make_singer_schema
+      - id: ruff-format

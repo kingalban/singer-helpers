@@ -1,12 +1,25 @@
 from __future__ import annotations
+
 """
 This script is a work in progress.
 
 """
 
 import argparse
-from tree_grafter import deep_getitem, JSONLike, ReplaceNode, apply_transformations, PathType
-from tree_grafter.openAPI import parse_openAPI_doc, hide_pagination, remove_excess_keys, is_property, add_nulls
+from tree_grafter import (
+    deep_getitem,
+    JSONLike,
+    ReplaceNode,
+    apply_transformations,
+    PathType,
+)
+from tree_grafter.openAPI import (
+    parse_openAPI_doc,
+    hide_pagination,
+    remove_excess_keys,
+    is_property,
+    add_nulls,
+)
 from tree_grafter.utils import y_print, j_print, pipe
 from tree_grafter.depth import limit_depth
 from typing import Callable, Optional, Any, Union, List, Dict, TypeVar
@@ -22,10 +35,14 @@ def log(*args, **kwargs):
 
 def fits_tap_requirements(_tree, path, node) -> None:
     if is_property(node):
-        assert "null" in node["type"], f"property at path={'.'.join(path)!r} has only 'null' type {node}"
+        assert (
+            "null" in node["type"]
+        ), f"property at path={'.'.join(path)!r} has only 'null' type {node}"
 
     elif isinstance(node, dict) and node == {}:
-        assert len(path) > 3, f"null schema at path={'.'.join(path)!r} too close to root"
+        assert (
+            len(path) > 3
+        ), f"null schema at path={'.'.join(path)!r} too close to root"
 
 
 def alert_empty_dict(_tree, path, node) -> None:
@@ -36,8 +53,11 @@ def alert_empty_dict(_tree, path, node) -> None:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--openAPI-file", help="path to openAPI .yml doc")
-    parser.add_argument("--path-to-schema", help="dot separated path to the schema in the .yml after $ref expansion "
-                                                 "(eg: paths./accounts.get.responses.200.content.application/json.schema")
+    parser.add_argument(
+        "--path-to-schema",
+        help="dot separated path to the schema in the .yml after $ref expansion "
+        "(eg: paths./accounts.get.responses.200.content.application/json.schema",
+    )
     parser.add_argument("--schema-file", help="path to the schema .json file")
 
     args = parser.parse_args(argv)
@@ -45,9 +65,9 @@ def main(argv=None) -> int:
     with open(args.openAPI_file) as f:
         API_doc = yaml.safe_load(f.read())
 
-    parsed_API_doc = pipe(API_doc,
-                          parse_openAPI_doc,
-                          apply_transformations(hide_pagination))
+    parsed_API_doc = pipe(
+        API_doc, parse_openAPI_doc, apply_transformations(hide_pagination)
+    )
 
     documentation_schema = deep_getitem(parsed_API_doc, args.path_to_schema)
 
@@ -58,7 +78,7 @@ def main(argv=None) -> int:
 
     def fill_empty_node(_tree, path, node) -> None:
         if node == {}:
-            path_str = '.'.join(path)
+            path_str = ".".join(path)
             try:
                 replacement = deep_getitem(documentation_schema, path)
                 log(f"empty node with replacement at {path_str!r})")
@@ -75,9 +95,9 @@ def main(argv=None) -> int:
             fill_empty_node,
             # _limit_depth(),
             add_nulls,
-            remove_excess_keys()
+            remove_excess_keys(),
         ),
-        print
+        print,
     )
 
     log("---------")

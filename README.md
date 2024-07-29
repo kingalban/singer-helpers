@@ -30,8 +30,7 @@ $ select-streams catalog.json -s accounts --mode print
 #           "breadcrumb": [],
 #           "metadata": {
 #             "inclusion": "available",
-#             "selected": false,
-#             "selected-by-default": true,
+#             "selected": true,
 #             "table-key-properties": [
 #               "id"
 #             ]
@@ -55,4 +54,3 @@ Also, you can set the `replication-method` and `forced-replication-method`, or r
 ## validate-json
 
 Validate json records against a schema using a specified validator revision.
-
